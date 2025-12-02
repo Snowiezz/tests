@@ -125,6 +125,16 @@ class Game:
         pygame.display.set_caption("Top-Down Shooter")
         self.clock = pygame.time.Clock()
         self.running = True
+        
+        # Font
+        self.font = pygame.font.Font(None, 36)
+        self.small_font = pygame.font.Font(None, 24)
+        
+        # Initialize game state
+        self.reset()
+    
+    def reset(self):
+        """Reset game state for a new game."""
         self.game_over = False
         
         # Game objects
@@ -135,10 +145,6 @@ class Game:
         # Game stats
         self.score = 0
         self.enemy_spawn_timer = 0
-        
-        # Font
-        self.font = pygame.font.Font(None, 36)
-        self.small_font = pygame.font.Font(None, 24)
     
     def spawn_enemy(self):
         # Spawn enemy at random edge of screen
@@ -173,7 +179,7 @@ class Game:
             # Restart on R key
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r and self.game_over:
-                    self.__init__()
+                    self.reset()
     
     def update(self):
         if self.game_over:
@@ -206,12 +212,10 @@ class Game:
             for enemy in self.enemies[:]:
                 if enemy.collides_with(bullet.x, bullet.y, bullet.size):
                     enemy.health -= 1
-                    if bullet in self.bullets:
-                        self.bullets.remove(bullet)
+                    self.bullets.remove(bullet)
                     
                     if enemy.health <= 0:
-                        if enemy in self.enemies:
-                            self.enemies.remove(enemy)
+                        self.enemies.remove(enemy)
                         self.score += 10
                     break
         
