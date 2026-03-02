@@ -10,24 +10,12 @@ namespace RL {
 // Low-level steering helpers
 // -------------------------------------------------------
 
-// Returns signed angle from car forward to target (-PI..PI)
-// Positive = target is to the left, negative = right
-inline float angleToTarget(const CarState& car, const Vec3& target) {
-    float yaw = car.rotation.y;
-    // Car forward vector in world space
-    Vec3 forward  = {std::cos(yaw), std::sin(yaw), 0.f};
-    Vec3 toTarget = (target - car.location).flat().normalized();
-    // atan2(cross, dot): angle FROM forward TO toTarget
-    // cross = forward x toTarget (z component)
-    float cross = forward.x * toTarget.y - forward.y * toTarget.x;
-    float dot   = forward.x * toTarget.x + forward.y * toTarget.y;
-    return std::atan2(cross, dot);
-}
-
 inline float steerToward(const CarState& car, const Vec3& target) {
-    float angle = angleToTarget(car, target);
-    // Proportional steer, clamped. Use 1.5 gain (not 2.5 - less oscillation)
-    return clamp(angle * 1.5f, -1.f, 1.f);
+    float yaw = car.rotation.y;
+    Vec3 forward = {std::cos(yaw), std::sin(yaw), 0.f};
+    Vec3 toTarget = (target - car.location).flat().normalized();
+    float angle = angle2D(forward, toTarget);
+    return clamp(angle * 2.5f, -1.f, 1.f);
 }
 
 inline Vec3 aerialAlign(const CarState& car, const Vec3& target) {
@@ -54,39 +42,43 @@ inline Vec3 aerialAlign(const CarState& car, const Vec3& target) {
     };
 }
 
-// Drive to a location with smart throttle based on alignment
+// Returns angle in radians between car forward and target direction (-PI..PI)
+inline float angleToTarget(const CarState& car, const Vec3& target) {
+    float yaw = car.rotation.y;
+    Vec3 forward  = {std::cos(yaw), std::sin(yaw), 0.f};
+    Vec3 toTarget = (target - car.location).flat().normalized();
+    return angle2D(forward, toTarget);
+}
+
+// Drive to a location with smart throttle/boost based on alignment
 inline ControllerState driveToLocation(const CarState& car, const Vec3& target,
                                        bool useBoost = false) {
     ControllerState ctrl;
-    float speed    = car.velocity.flat().length();
-    float angle    = angleToTarget(car, target);
-    float absAngle = std::abs(angle);
-    float dist     = car.location.flat().dist(target.flat());
+    float speed   = car.velocity.flat().length();
+    float steer   = steerToward(car, target);
+    float absAngle = std::abs(angleToTarget(car, target));
+    float dist    = car.location.flat().dist(target.flat());
 
-    ctrl.steer = clamp(angle * 1.5f, -1.f, 1.f);
+    ctrl.steer = steer;
 
-    // Facing away and close — reverse
-    if (absAngle > 2.2f && dist < 600.f) {
+    // If facing away, reverse or turn on spot
+    if (absAngle > 2.0f && dist < 500.f) {
         ctrl.throttle = -1.f;
-        ctrl.steer    = clamp(-angle * 1.5f, -1.f, 1.f);
+        ctrl.steer    = -steer;
         return ctrl;
     }
 
-    // Throttle: reduce when badly misaligned to avoid overshooting
-    if (absAngle > 1.0f) {
-        ctrl.throttle = 0.2f;   // nearly stopped, just turn
-        ctrl.boost    = false;
-    } else if (absAngle > 0.3f) {
-        ctrl.throttle = clamp(1.f - absAngle, 0.3f, 0.8f);
+    // Slow down when badly misaligned to avoid overshooting
+    if (absAngle > 0.5f) {
+        ctrl.throttle = clamp(1.f - absAngle, 0.2f, 1.f);
         ctrl.boost    = false;
     } else {
         ctrl.throttle = 1.f;
-        // Only boost if well aligned AND not already at max speed
-        ctrl.boost    = useBoost && absAngle < 0.15f && speed < CAR_MAX_SPEED - 100.f;
+        ctrl.boost    = useBoost && speed < CAR_MAX_SPEED - 50.f;
     }
 
     // Handbrake on sharp turns at speed
-    if (absAngle > 1.2f && speed > 400.f && car.is_on_ground)
+    if (std::abs(steer) > 0.85f && speed > 500.f && car.is_on_ground)
         ctrl.handbrake = true;
 
     return ctrl;
@@ -117,7 +109,7 @@ public:
         ball_ = packet.ball;
 
         // Blue (team 0) attacks +y, Orange (team 1) attacks -y
-        goalDir_       = (team_ == 0) ? 1.f : -1.f;
+        goalDir_   = (team_ == 0) ? 1.f : -1.f;
         Vec3 myGoal    = {0.f, -goalDir_ * GOAL_Y, 0.f};
         Vec3 theirGoal = {0.f,  goalDir_ * GOAL_Y, 0.f};
 
@@ -187,22 +179,17 @@ private:
         case BotState::COLLECT_BOOST: return doCollectBoost();
         case BotState::ATTACK:        return doAttack(theirGoal);
         case BotState::ROTATE_BACK:   return doRotateBack(myGoal);
-        default:                      return doAttack(theirGoal);
+        default:                       return doAttack(theirGoal);
         }
     }
 
     // -------------------------------------------------------
-    // KICKOFF — just drive straight at the ball, no fuss
+    // KICKOFF
     // -------------------------------------------------------
     ControllerState doKickoff() {
-        float angle    = angleToTarget(my_, ball_.location);
-        float absAngle = std::abs(angle);
-
-        ControllerState ctrl;
-        ctrl.steer    = clamp(angle * 1.5f, -1.f, 1.f);
+        ControllerState ctrl = driveToLocation(my_, ball_.location, true);
+        ctrl.boost    = true;
         ctrl.throttle = 1.f;
-        // Only boost when roughly aligned
-        ctrl.boost    = absAngle < 0.3f;
         return ctrl;
     }
 
@@ -265,69 +252,71 @@ private:
             {-3072.f,  4096.f, 73.f}, { 3072.f,  4096.f, 73.f},
         };
 
-        Vec3  best      = fullBoostPads[0];
+        // Pick closest pad that is on our side of the ball (don't go past ball)
+        Vec3 best     = fullBoostPads[0];
         float bestScore = 1e9f;
         for (const auto& pad : fullBoostPads) {
-            float d     = my_.location.dist(pad);
-            float score = d;
-            if (score < bestScore) { bestScore = score; best = pad; }
+            float d = my_.location.dist(pad);
+            // Penalise pads that are past the ball (deep in opponent half)
+            float ballDist = ball_.location.dist(pad);
+            float score = d + (ballDist < d ? 1000.f : 0.f);
+            if (score < bestScore) {
+                bestScore = score;
+                best = pad;
+            }
         }
         return driveToLocation(my_, best, false);
     }
 
     // -------------------------------------------------------
-    // ATTACK
+    // ATTACK - the most important function
+    // Approach ball from the correct side to hit toward their goal
     // -------------------------------------------------------
     ControllerState doAttack(const Vec3& theirGoal) {
-        float distToBall = my_.location.flat().dist(ball_.location.flat());
-        bool  ballLow    = ball_.location.z < 150.f;
+        float distToBall = my_.location.dist(ball_.location);
+        bool  ballLow    = ball_.location.z < 120.f;
 
         if (!ballLow) {
-            // Ball is in the air — drive to predicted landing spot
+            // Ball is in the air - just drive to where it will land
             auto slices = BallPredictor::predict(ball_, 60);
             for (const auto& s : slices) {
-                if (s.location.z < 150.f) {
+                if (s.location.z < 120.f) {
                     return driveToLocation(my_, s.location, my_.boost > 30.f);
                 }
             }
-            return driveToLocation(my_, ball_.location, false);
+            // Fallback: drive toward ball
+            return driveToLocation(my_, ball_.location, my_.boost > 30.f);
         }
 
         // --- Ground ball ---
-        // We want to approach from behind the ball relative to their goal,
-        // so we push the ball toward the goal.
-        //
-        // approachOffset: how far behind the ball to aim (larger = easier to
-        // line up but slower to commit)
-        float approachOffset = BALL_RADIUS + 200.f;
-
-        // Direction from their goal to the ball
+        // Compute the ideal approach direction: from behind the ball
+        // relative to their goal, so we hit the ball toward their goal.
         Vec3 goalToBall  = (ball_.location - theirGoal).flat().normalized();
+        // Approach point: come from behind the ball (between us and the goal)
+        Vec3 approachPt  = ball_.location + goalToBall * (BALL_RADIUS + 120.f);
 
-        // The point we want to drive through (behind the ball)
-        Vec3 approachPt  = ball_.location + goalToBall * approachOffset;
-        approachPt.z = 0.f;
+        // Check if we're already on the correct side to hit
+                bool  goodAngle  = std::abs(angleToTarget(my_, approachPt)) < 0.4f;
 
-        // Angle from car to approach point
-        float angleToApproach = std::abs(angleToTarget(my_, approachPt));
-        // Angle from car directly to ball
-        float angleToBall     = std::abs(angleToTarget(my_, ball_.location));
+        Vec3  target;
+        bool  useBoost;
 
-        if (distToBall < 350.f) {
-            // Close — drive straight through the ball toward the goal
-            // Target a point just past the ball in the goal direction
+        if (distToBall < 400.f && !goodAngle) {
+            // Too close and bad angle — back off to approach point
+            target   = approachPt;
+            useBoost = false;
+        } else if (distToBall < 300.f) {
+            // Close enough and good angle — aim straight through ball at goal
             Vec3 ballToGoal = (theirGoal - ball_.location).flat().normalized();
-            Vec3 target     = ball_.location + ballToGoal * 100.f;
-            bool useBoost   = my_.boost > 20.f && angleToBall < 0.25f;
-            return driveToLocation(my_, target, useBoost);
-        } else if (angleToApproach < 0.4f) {
-            // Well aligned with approach point — drive to it with boost
-            bool useBoost = my_.boost > 30.f && distToBall > 600.f;
-            return driveToLocation(my_, approachPt, useBoost);
+            target   = ball_.location + ballToGoal * 50.f;
+            useBoost = my_.boost > 15.f;
         } else {
-            // Not aligned — go to approach point without boost first
-            return driveToLocation(my_, approachPt, false);
+            // Far away — drive to approach point at speed
+            target   = approachPt;
+            useBoost = my_.boost > 30.f && distToBall > 800.f;
         }
+
+        return driveToLocation(my_, target, useBoost);
     }
 
     // -------------------------------------------------------
@@ -348,9 +337,9 @@ private:
     bool isBallHeadingToMyGoal(const Vec3& myGoal) const {
         Vec3  toGoal  = (myGoal - ball_.location).normalized();
         float dot     = ball_.velocity.dot(toGoal);
-        bool  heading = dot > 300.f;
-        bool  ourHalf = (goalDir_ > 0.f) ? (ball_.location.y < 1000.f)
-                                          : (ball_.location.y > -1000.f);
+        bool  heading = dot > 200.f;
+        bool  ourHalf = (goalDir_ > 0.f) ? (ball_.location.y < 500.f)
+                                          : (ball_.location.y > -500.f);
         return heading && ourHalf;
     }
 
@@ -389,3 +378,6 @@ private:
 };
 
 } // namespace RL
+
+
+

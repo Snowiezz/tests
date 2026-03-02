@@ -1,142 +1,111 @@
 #include "ChampBot.h"
 #include <iostream>
-#include <iomanip>
 #include <string>
 
-static void printController(const RL::ControllerState& c, int tick) {
-    std::cout << "Tick " << std::setw(3) << tick
-              << " | throttle=" << std::setw(5) << std::fixed << std::setprecision(2) << c.throttle
-              << " steer="      << std::setw(5) << c.steer
-              << " pitch="      << std::setw(5) << c.pitch
-              << " yaw="        << std::setw(5) << c.yaw
-              << " roll="       << std::setw(5) << c.roll
-              << " boost="      << (c.boost     ? "Y" : "N")
-              << " jump="       << (c.jump      ? "Y" : "N")
-              << " handbrake="  << (c.handbrake ? "Y" : "N")
-              << "\n";
+// Tiny JSON helpers - no external dependencies needed
+static float getFloat(const std::string& json, const std::string& key) {
+    auto pos = json.find("\"" + key + "\"");
+    if (pos == std::string::npos) return 0.f;
+    pos = json.find(':', pos) + 1;
+    while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) ++pos;
+    return std::stof(json.substr(pos));
+}
+
+static bool getBool(const std::string& json, const std::string& key) {
+    auto pos = json.find("\"" + key + "\"");
+    if (pos == std::string::npos) return false;
+    pos = json.find(':', pos) + 1;
+    while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) ++pos;
+    return json.substr(pos, 4) == "true";
+}
+
+static int getInt(const std::string& json, const std::string& key) {
+    auto pos = json.find("\"" + key + "\"");
+    if (pos == std::string::npos) return 0;
+    pos = json.find(':', pos) + 1;
+    while (pos < json.size() && (json[pos] == ' ' || json[pos] == '\t')) ++pos;
+    return std::stoi(json.substr(pos));
 }
 
 int main() {
-    // -------------------------------------------------------
-    // Scenario 1: Kickoff
-    // -------------------------------------------------------
-    std::cout << "=== Scenario 1: Kickoff ===\n";
-    {
-        RL::ChampBot bot(0); // Blue team
+    // Disable buffering so Python gets output immediately
+    std::ios::sync_with_stdio(false);
+    std::cin.tie(nullptr);
+    setvbuf(stdout, nullptr, _IONBF, 0);
 
+    RL::ChampBot* bot = nullptr;
+    std::string line;
+
+    while (std::getline(std::cin, line)) {
+        if (line.empty()) continue;
+
+        // Parse JSON packet from Python agent
         RL::GamePacket pkt{};
-        // Cars at kickoff positions
-        pkt.my_car.location       = {-256.f, -3840.f, 17.f};
-        pkt.my_car.rotation       = {0.f, 1.5708f, 0.f}; // facing +y
-        pkt.my_car.boost          = 33.3f;
-        pkt.my_car.is_on_ground   = true;
-        pkt.my_car.team           = 0;
 
-        pkt.opponent.location     = {256.f,  3840.f, 17.f};
-        pkt.opponent.rotation     = {0.f, -1.5708f, 0.f};
-        pkt.opponent.boost        = 33.3f;
-        pkt.opponent.is_on_ground = true;
-        pkt.opponent.team         = 1;
-
-        // Ball at centre
-        pkt.ball.location = {0.f, 0.f, 93.f};
-        pkt.ball.velocity = {0.f, 0.f, 0.f};
-
-        for (int i = 0; i < 10; ++i) {
-            auto ctrl = bot.tick(pkt);
-            printController(ctrl, i);
+        // my_car
+        auto myPos = line.find("\"my_car\"");
+        if (myPos != std::string::npos) {
+            auto block = line.substr(myPos);
+            pkt.my_car.location.x   = getFloat(block, "x");
+            pkt.my_car.location.y   = getFloat(block, "y");
+            pkt.my_car.location.z   = getFloat(block, "z");
+            pkt.my_car.velocity.x   = getFloat(block, "vx");
+            pkt.my_car.velocity.y   = getFloat(block, "vy");
+            pkt.my_car.velocity.z   = getFloat(block, "vz");
+            pkt.my_car.rotation.x   = getFloat(block, "pitch");
+            pkt.my_car.rotation.y   = getFloat(block, "yaw");
+            pkt.my_car.rotation.z   = getFloat(block, "roll");
+            pkt.my_car.boost        = getFloat(block, "boost");
+            pkt.my_car.is_on_ground = getBool(block,  "on_ground");
+            pkt.my_car.team         = getInt(block,   "team");
         }
+
+        // opponent
+        auto oppPos = line.find("\"opponent\"");
+        if (oppPos != std::string::npos) {
+            auto block = line.substr(oppPos);
+            pkt.opponent.location.x   = getFloat(block, "x");
+            pkt.opponent.location.y   = getFloat(block, "y");
+            pkt.opponent.location.z   = getFloat(block, "z");
+            pkt.opponent.boost        = getFloat(block, "boost");
+            pkt.opponent.is_on_ground = getBool(block,  "on_ground");
+            pkt.opponent.team         = getInt(block,   "team");
+        }
+
+        // ball
+        auto ballPos = line.find("\"ball\"");
+        if (ballPos != std::string::npos) {
+            auto block = line.substr(ballPos);
+            pkt.ball.location.x = getFloat(block, "x");
+            pkt.ball.location.y = getFloat(block, "y");
+            pkt.ball.location.z = getFloat(block, "z");
+            pkt.ball.velocity.x = getFloat(block, "vx");
+            pkt.ball.velocity.y = getFloat(block, "vy");
+            pkt.ball.velocity.z = getFloat(block, "vz");
+        }
+
+        // Create bot on first packet (we now know the team)
+        if (!bot) {
+            bot = new RL::ChampBot(pkt.my_car.team);
+        }
+
+        // Run bot logic
+        auto ctrl = bot->tick(pkt);
+
+        // Write JSON response back to Python
+        std::cout << "{"
+            << "\"throttle\":"  << ctrl.throttle  << ","
+            << "\"steer\":"     << ctrl.steer      << ","
+            << "\"pitch\":"     << ctrl.pitch      << ","
+            << "\"yaw\":"       << ctrl.yaw        << ","
+            << "\"roll\":"      << ctrl.roll       << ","
+            << "\"boost\":"     << (ctrl.boost     ? "true" : "false") << ","
+            << "\"jump\":"      << (ctrl.jump      ? "true" : "false") << ","
+            << "\"handbrake\":" << (ctrl.handbrake ? "true" : "false")
+            << "}\n";
+        std::cout.flush();
     }
 
-    // -------------------------------------------------------
-    // Scenario 2: Attacking ground shot
-    // -------------------------------------------------------
-    std::cout << "\n=== Scenario 2: Ground Attack ===\n";
-    {
-        RL::ChampBot bot(0);
-
-        RL::GamePacket pkt{};
-        pkt.my_car.location       = {-500.f, 2000.f, 17.f};
-        pkt.my_car.rotation       = {0.f, 1.5708f, 0.f};
-        pkt.my_car.velocity       = {0.f, 800.f, 0.f};
-        pkt.my_car.boost          = 80.f;
-        pkt.my_car.is_on_ground   = true;
-        pkt.my_car.team           = 0;
-
-        pkt.opponent.location     = {0.f, 4500.f, 17.f};
-        pkt.opponent.boost        = 50.f;
-        pkt.opponent.is_on_ground = true;
-        pkt.opponent.team         = 1;
-
-        pkt.ball.location = {-300.f, 3000.f, 93.f};
-        pkt.ball.velocity = {100.f, 500.f, 0.f};
-
-        for (int i = 0; i < 10; ++i) {
-            auto ctrl = bot.tick(pkt);
-            printController(ctrl, i);
-        }
-    }
-
-    // -------------------------------------------------------
-    // Scenario 3: Aerial
-    // -------------------------------------------------------
-    std::cout << "\n=== Scenario 3: Aerial ===\n";
-    {
-        RL::ChampBot bot(0);
-
-        RL::GamePacket pkt{};
-        pkt.my_car.location       = {0.f, 2000.f, 17.f};
-        pkt.my_car.rotation       = {0.f, 1.5708f, 0.f};
-        pkt.my_car.velocity       = {0.f, 600.f, 0.f};
-        pkt.my_car.boost          = 80.f;
-        pkt.my_car.is_on_ground   = true;
-        pkt.my_car.team           = 0;
-
-        pkt.opponent.location     = {2000.f, 3000.f, 17.f};
-        pkt.opponent.boost        = 30.f;
-        pkt.opponent.is_on_ground = true;
-        pkt.opponent.team         = 1;
-
-        // Ball high in the air heading toward goal
-        pkt.ball.location = {0.f, 3500.f, 900.f};
-        pkt.ball.velocity = {0.f, 400.f, 200.f};
-
-        for (int i = 0; i < 20; ++i) {
-            auto ctrl = bot.tick(pkt);
-            printController(ctrl, i);
-        }
-    }
-
-    // -------------------------------------------------------
-    // Scenario 4: Save
-    // -------------------------------------------------------
-    std::cout << "\n=== Scenario 4: Defensive Save ===\n";
-    {
-        RL::ChampBot bot(0);
-
-        RL::GamePacket pkt{};
-        pkt.my_car.location       = {500.f, 0.f, 17.f};
-        pkt.my_car.rotation       = {0.f, -1.5708f, 0.f}; // facing -y
-        pkt.my_car.velocity       = {0.f, -200.f, 0.f};
-        pkt.my_car.boost          = 50.f;
-        pkt.my_car.is_on_ground   = true;
-        pkt.my_car.team           = 0;
-
-        pkt.opponent.location     = {-500.f, -2000.f, 17.f};
-        pkt.opponent.boost        = 70.f;
-        pkt.opponent.is_on_ground = true;
-        pkt.opponent.team         = 1;
-
-        // Ball on our half, heading toward our goal at -y
-        pkt.ball.location = {200.f, -2500.f, 93.f};
-        pkt.ball.velocity = {50.f, -1200.f, 0.f};
-
-        for (int i = 0; i < 10; ++i) {
-            auto ctrl = bot.tick(pkt);
-            printController(ctrl, i);
-        }
-    }
-
-    std::cout << "\nChampBot demo complete.\n";
+    delete bot;
     return 0;
 }
