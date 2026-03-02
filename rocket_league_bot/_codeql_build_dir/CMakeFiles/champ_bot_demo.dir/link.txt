@@ -1,0 +1,1 @@
+/tmp/codeql-scratch-47df29682b5a5704/dbs/cpp/working/autobuild/bin/c++ -O3 -DNDEBUG -Wl,--dependency-file=CMakeFiles/champ_bot_demo.dir/link.d CMakeFiles/champ_bot_demo.dir/src/main.cpp.o -o champ_bot_demo
