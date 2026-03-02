@@ -5,9 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Strict warnings
+# Fix for MSVC cmath/cstdlib missing float functions
 if(MSVC)
-    add_compile_options(/W4 /WX)
+    add_compile_definitions(_USE_MATH_DEFINES)
+    add_compile_options(/W4 /WX /permissive-)
+    # Use latest Windows SDK math headers correctly
+    add_compile_definitions(NOMINMAX _CRT_SECURE_NO_WARNINGS)
 else()
     add_compile_options(-Wall -Wextra -Wpedantic -Werror)
 endif()

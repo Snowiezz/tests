@@ -1,5 +1,13 @@
 #pragma once
+
+// MSVC 19.50 workaround: include corecrt_math.h directly before cmath
+#ifdef _MSC_VER
+  #include <corecrt_math.h>
+  #include <corecrt_math_defines.h>
+#endif
 #include <cmath>
+#include <cstdlib>
+#include <cstdio>
 
 struct Vec3 {
     float x, y, z;
