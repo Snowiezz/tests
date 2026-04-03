@@ -19,7 +19,7 @@ function QuestionCard({ question, answer, onAnswerChange, result }) {
               <li key={option}>{option}</li>
             ))}
           </ul>
-          <p className="hint">Enter the letter (for example: A).</p>
+          <p className="hint">Enter the letter (e.g., A).</p>
         </div>
       )}
 

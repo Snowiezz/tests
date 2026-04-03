@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import QuestionCard from './components/QuestionCard';
 
-const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 function App() {
   const [questions, setQuestions] = useState([]);
