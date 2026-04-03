@@ -1,16 +1,58 @@
-# React + Vite
+# A-Level Computer Science Questions Website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A beginner-friendly React + Node.js project for practicing A-Level Computer Science answers.
 
-Currently, two official plugins are available:
+## What this app does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Shows multiple-choice and open-ended questions.
+- Gives each question a textarea for student answers.
+- Sends answers to a separate backend grading endpoint.
+- Grades answers against a sample JSON mark scheme.
+- Returns per-question feedback and a total score.
 
-## React Compiler
+## Project structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```text
+alevel-cs-questions/
+├── backend/
+│   ├── gradeAnswer.js      # Grading logic (uses mark scheme JSON)
+│   ├── markScheme.json     # Sample mark scheme data
+│   └── server.js           # Node HTTP API server
+├── src/
+│   ├── components/
+│   │   └── QuestionCard.js # Reusable question + answer UI card
+│   ├── App.js              # Main app state + submit workflow
+│   ├── index.css           # Responsive styling
+│   └── index.js            # React entry point
+├── index.html
+├── package.json
+└── vite.config.js
+```
 
-## Expanding the ESLint configuration
+## Run locally
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Start backend (terminal 1):
+
+```bash
+npm run server
+```
+
+3. Start frontend (terminal 2):
+
+```bash
+npm run dev
+```
+
+4. Open the local URL shown by Vite (usually http://localhost:5173).
+
+## Beginner notes
+
+- Edit `backend/markScheme.json` to add/change questions and mark criteria.
+- `App.js` handles loading questions, answer state, submission, and score display.
+- `QuestionCard.js` is reusable, so each question uses the same UI component.
