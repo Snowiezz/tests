@@ -1,0 +1,26 @@
+{
+  "questions": [
+    {
+      "id": 1,
+      "type": "mcq",
+      "prompt": "Which data structure follows Last-In, First-Out (LIFO)?",
+      "options": ["A) Queue", "B) Stack", "C) Linked List", "D) Tree"],
+      "expectedAnswer": "B",
+      "maxScore": 2
+    },
+    {
+      "id": 2,
+      "type": "open",
+      "prompt": "Explain one advantage of using binary search over linear search.",
+      "keywords": ["sorted", "faster", "log", "efficient"],
+      "maxScore": 4
+    },
+    {
+      "id": 3,
+      "type": "open",
+      "prompt": "Describe what the CPU fetch-decode-execute cycle does.",
+      "keywords": ["fetch", "decode", "execute", "instruction", "memory"],
+      "maxScore": 4
+    }
+  ]
+}
