@@ -1,25 +1,32 @@
 // src/components/QuestionCard.jsx
-// Reusable question UI card.
-// It supports both MCQ (display options) and open-ended prompts,
-// and always provides a textarea for user responses.
+// Reusable single-question UI card.
+// This card is used in a one-question-at-a-time quiz flow.
 import React from 'react';
 
-function QuestionCard({ question, answer, onAnswerChange, result }) {
+function QuestionCard({
+  question,
+  answer,
+  onAnswerChange,
+  result,
+  currentIndex,
+  totalQuestions,
+}) {
   return (
     <article className="question-card">
-      <h2>
-        Q{question.id}. {question.prompt}
-      </h2>
+      <p className="question-count">
+        Question {currentIndex + 1} of {totalQuestions}
+      </p>
+
+      <h2>{question.prompt}</h2>
 
       {question.type === 'mcq' && (
         <div className="mcq-options">
-          <p>Options:</p>
+          <p>Select an option and type your final answer in the box:</p>
           <ul>
             {question.options.map((option) => (
               <li key={option}>{option}</li>
             ))}
           </ul>
-          <p className="hint">Enter the letter (e.g., A).</p>
         </div>
       )}
 
@@ -30,8 +37,8 @@ function QuestionCard({ question, answer, onAnswerChange, result }) {
         id={`answer-${question.id}`}
         value={answer}
         onChange={(event) => onAnswerChange(question.id, event.target.value)}
-        placeholder="Type your answer here..."
-        rows={5}
+        placeholder="Write your answer here..."
+        rows={6}
       />
 
       {result && (

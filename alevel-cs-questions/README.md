@@ -56,3 +56,9 @@ npm run dev
 - Edit `backend/markScheme.json` to add/change questions and mark criteria.
 - `App.js` handles loading questions, answer state, submission, and score display.
 - `QuestionCard.js` is reusable, so each question uses the same UI component.
+
+## Environment variable
+
+- `VITE_API_BASE_URL` (optional): frontend API base URL.
+  - Default: `http://localhost:3001`
+  - Example: create a `.env` file with `VITE_API_BASE_URL=http://localhost:3001`
