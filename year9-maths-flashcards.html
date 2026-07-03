@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Year 9 Maths Flashcards</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .instructions {
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .progress {
+            color: white;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .category-filter {
+            margin-bottom: 20px;
+        }
+
+        .category-filter label {
+            color: white;
+            margin-right: 10px;
+        }
+
+        .category-filter select {
+            padding: 8px 15px;
+            font-size: 1rem;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .flashcard-container {
+            perspective: 1000px;
+            width: 100%;
+            max-width: 500px;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+
+        .flashcard {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            cursor: pointer;
+        }
+
+        .flashcard.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .flashcard-front,
+        .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .flashcard-front {
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+            color: #333;
+        }
+
+        .flashcard-back {
+            background: linear-gradient(145deg, #4CAF50, #45a049);
+            color: white;
+            transform: rotateY(180deg);
+        }
+
+        .category-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .flashcard-front .category-badge {
+            background: #667eea;
+            color: white;
+        }
+
+        .flashcard-back .category-badge {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+        }
+
+        .question,
+        .answer {
+            font-size: 1.3rem;
+            line-height: 1.6;
+        }
+
+        .hint {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 15px;
+            font-style: italic;
+        }
+
+        .navigation {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .nav-btn {
+            padding: 12px 30px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .prev-btn {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .prev-btn:hover:not(:disabled) {
+            background: #e0e0e0;
+            transform: translateX(-3px);
+        }
+
+        .next-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .next-btn:hover:not(:disabled) {
+            background: #45a049;
+            transform: translateX(3px);
+        }
+
+        .shuffle-btn {
+            background: #ff9800;
+            color: white;
+        }
+
+        .shuffle-btn:hover {
+            background: #f57c00;
+        }
+
+        .flip-instruction {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .score-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: white;
+        }
+
+        .score-btn {
+            padding: 8px 20px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .score-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .correct-btn {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .incorrect-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .score-display {
+            margin-top: 10px;
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 600px) {
+            .flashcard-container {
+                height: 250px;
+            }
+
+            .question,
+            .answer {
+                font-size: 1.1rem;
+            }
+
+            .nav-btn {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>📚 Year 9 Maths Flashcards</h1>
+    <p class="instructions">Click the card to reveal the answer!</p>
+
+    <div class="category-filter">
+        <label for="category">Filter by topic:</label>
+        <select id="category" onchange="filterByCategory()">
+            <option value="all">All Topics</option>
+            <option value="algebra">Algebra</option>
+            <option value="geometry">Geometry</option>
+            <option value="statistics">Statistics</option>
+            <option value="number">Number</option>
+            <option value="ratio">Ratio &amp; Proportion</option>
+        </select>
+    </div>
+
+    <p class="progress">Card <span id="current">1</span> of <span id="total">26</span></p>
+
+    <div class="flashcard-container">
+        <div class="flashcard" id="flashcard" onclick="flipCard()">
+            <div class="flashcard-front">
+                <span class="category-badge" id="category-front"></span>
+                <p class="question" id="question"></p>
+                <p class="hint" id="hint"></p>
+            </div>
+            <div class="flashcard-back">
+                <span class="category-badge" id="category-back"></span>
+                <p class="answer" id="answer"></p>
+            </div>
+        </div>
+    </div>
+
+    <p class="flip-instruction">💡 Press SPACE or click to flip</p>
+
+    <div class="score-section">
+        <p>Did you get it right?</p>
+        <button class="score-btn correct-btn" onclick="markCorrect()">✓ Correct</button>
+        <button class="score-btn incorrect-btn" onclick="markIncorrect()">✗ Incorrect</button>
+        <p class="score-display">Score: <span id="correct-count">0</span> / <span id="attempted">0</span></p>
+    </div>
+
+    <div class="navigation">
+        <button class="nav-btn prev-btn" id="prev-btn" onclick="prevCard()">← Previous</button>
+        <button class="nav-btn shuffle-btn" onclick="shuffleCards()">🔀 Shuffle</button>
+        <button class="nav-btn next-btn" id="next-btn" onclick="nextCard()">Next →</button>
+    </div>
+
+    <script>
+        const allFlashcards = [
+            // Algebra
+            {
+                category: "algebra",
+                question: "Simplify: 3x + 5x - 2x",
+                answer: "6x",
+                hint: "Combine like terms"
+            },
+            {
+                category: "algebra",
+                question: "Expand: 2(x + 4)",
+                answer: "2x + 8",
+                hint: "Multiply each term inside the bracket"
+            },
+            {
+                category: "algebra",
+                question: "Factorise: x<sup>2</sup> + 5x",
+                answer: "x(x + 5)",
+                hint: "Find the common factor"
+            },
+            {
+                category: "algebra",
+                question: "Solve: 2x + 7 = 15",
+                answer: "x = 4",
+                hint: "Isolate x by doing inverse operations"
+            },
+            {
+                category: "algebra",
+                question: "What is the formula for the nth term of an arithmetic sequence?",
+                answer: "a<sub>n</sub> = a<sub>1</sub> + (n-1)d<br>Where a<sub>1</sub> is the first term and d is the common difference",
+                hint: "Think about starting point and how much it increases"
+            },
+            {
+                category: "algebra",
+                question: "Expand and simplify: (x + 3)(x + 2)",
+                answer: "x<sup>2</sup> + 5x + 6",
+                hint: "Use FOIL: First, Outer, Inner, Last"
+            },
+            // Geometry
+            {
+                category: "geometry",
+                question: "What is the sum of interior angles in a triangle?",
+                answer: "180°",
+                hint: "A fundamental property of all triangles"
+            },
+            {
+                category: "geometry",
+                question: "What is the formula for the area of a circle?",
+                answer: "A = πr<sup>2</sup>",
+                hint: "It involves pi and the radius"
+            },
+            {
+                category: "geometry",
+                question: "What is the formula for the circumference of a circle?",
+                answer: "C = 2πr or C = πd",
+                hint: "The distance around the circle"
+            },
+            {
+                category: "geometry",
+                question: "Calculate the area of a triangle with base 8cm and height 5cm",
+                answer: "20 cm<sup>2</sup><br>Area = ½ × base × height = ½ × 8 × 5 = 20",
+                hint: "Area = ½ × base × height"
+            },
+            {
+                category: "geometry",
+                question: "What is the Pythagorean theorem?",
+                answer: "a<sup>2</sup> + b<sup>2</sup> = c<sup>2</sup><br>Where c is the hypotenuse",
+                hint: "Relates to right-angled triangles"
+            },
+            {
+                category: "geometry",
+                question: "What is the sum of interior angles in a quadrilateral?",
+                answer: "360°",
+                hint: "Think about how many triangles fit inside"
+            },
+            // Statistics
+            {
+                category: "statistics",
+                question: "What is the mean of: 4, 7, 9, 12, 8?",
+                answer: "8<br>Mean = (4+7+9+12+8) ÷ 5 = 40 ÷ 5 = 8",
+                hint: "Add all values and divide by count"
+            },
+            {
+                category: "statistics",
+                question: "What is the median of: 3, 7, 2, 9, 5?",
+                answer: "5<br>Ordered: 2, 3, 5, 7, 9<br>Middle value is 5",
+                hint: "Order the numbers first, then find the middle"
+            },
+            {
+                category: "statistics",
+                question: "What is the mode of: 2, 4, 4, 5, 7, 4, 8?",
+                answer: "4<br>4 appears three times (most frequent)",
+                hint: "The most frequently occurring value"
+            },
+            {
+                category: "statistics",
+                question: "What is the range of: 15, 8, 22, 11, 19?",
+                answer: "14<br>Range = 22 - 8 = 14",
+                hint: "Highest value minus lowest value"
+            },
+            // Number
+            {
+                category: "number",
+                question: "What is 15% of 80?",
+                answer: "12<br>15% × 80 = 0.15 × 80 = 12",
+                hint: "Convert percentage to decimal first"
+            },
+            {
+                category: "number",
+                question: "Express 0.75 as a fraction in its simplest form",
+                answer: "¾",
+                hint: "0.75 = 75/100, then simplify"
+            },
+            {
+                category: "number",
+                question: "What is 2<sup>3</sup> × 2<sup>4</sup>?",
+                answer: "2<sup>7</sup> = 128<br>When multiplying, add the powers",
+                hint: "Add the powers when multiplying same bases"
+            },
+            {
+                category: "number",
+                question: "Find the LCM of 6 and 8",
+                answer: "24<br>Multiples of 6: 6, 12, 18, 24...<br>Multiples of 8: 8, 16, 24...",
+                hint: "Lowest Common Multiple - first number in both lists"
+            },
+            {
+                category: "number",
+                question: "What is √144?",
+                answer: "12<br>Because 12 × 12 = 144",
+                hint: "What number times itself equals 144?"
+            },
+            {
+                category: "number",
+                question: "Convert 3/8 to a decimal",
+                answer: "0.375<br>3 ÷ 8 = 0.375",
+                hint: "Divide the numerator by the denominator"
+            },
+            // Ratio & Proportion
+            {
+                category: "ratio",
+                question: "Share £60 in the ratio 2:3",
+                answer: "£24 and £36<br>Total parts = 5<br>Each part = £12<br>2 parts = £24, 3 parts = £36",
+                hint: "Find total parts, then value of one part"
+            },
+            {
+                category: "ratio",
+                question: "If 5 books cost £35, how much do 8 books cost?",
+                answer: "£56<br>One book = £7<br>8 books = £56",
+                hint: "Find the cost of one book first"
+            },
+            {
+                category: "ratio",
+                question: "Simplify the ratio 24:36",
+                answer: "2:3<br>Divide both by HCF (12)",
+                hint: "Find the highest common factor"
+            },
+            {
+                category: "ratio",
+                question: "A recipe needs 200g flour for 12 cookies. How much for 30 cookies?",
+                answer: "500g<br>200 ÷ 12 × 30 = 500g",
+                hint: "Use proportion - multiply by scale factor"
+            }
+        ];
+
+        let flashcards = [...allFlashcards];
+        let currentIndex = 0;
+        let correctCount = 0;
+        let attemptedCount = 0;
+        let hasAnsweredCurrent = false;
+
+        function updateCard() {
+            const card = flashcards[currentIndex];
+            document.getElementById('question').innerHTML = card.question;
+            document.getElementById('answer').innerHTML = card.answer;
+            document.getElementById('hint').textContent = card.hint ? `Hint: ${card.hint}` : '';
+            document.getElementById('category-front').textContent = card.category;
+            document.getElementById('category-back').textContent = card.category;
+            document.getElementById('current').textContent = currentIndex + 1;
+            document.getElementById('total').textContent = flashcards.length;
+
+            // Reset flip state
+            document.getElementById('flashcard').classList.remove('flipped');
+            hasAnsweredCurrent = false;
+
+            // Update navigation buttons
+            document.getElementById('prev-btn').disabled = currentIndex === 0;
+            document.getElementById('next-btn').disabled = currentIndex === flashcards.length - 1;
+        }
+
+        function flipCard() {
+            document.getElementById('flashcard').classList.toggle('flipped');
+        }
+
+        function nextCard() {
+            if (currentIndex < flashcards.length - 1) {
+                currentIndex++;
+                updateCard();
+            }
+        }
+
+        function prevCard() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateCard();
+            }
+        }
+
+        function shuffleCards() {
+            for (let i = flashcards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+            }
+            currentIndex = 0;
+            updateCard();
+        }
+
+        function filterByCategory() {
+            const category = document.getElementById('category').value;
+            if (category === 'all') {
+                flashcards = [...allFlashcards];
+            } else {
+                flashcards = allFlashcards.filter(card => card.category === category);
+            }
+            currentIndex = 0;
+            correctCount = 0;
+            attemptedCount = 0;
+            hasAnsweredCurrent = false;
+            updateScore();
+            updateCard();
+        }
+
+        function markCorrect() {
+            if (!hasAnsweredCurrent) {
+                correctCount++;
+                attemptedCount++;
+                hasAnsweredCurrent = true;
+                updateScore();
+            }
+        }
+
+        function markIncorrect() {
+            if (!hasAnsweredCurrent) {
+                attemptedCount++;
+                hasAnsweredCurrent = true;
+                updateScore();
+            }
+        }
+
+        function updateScore() {
+            document.getElementById('correct-count').textContent = correctCount;
+            document.getElementById('attempted').textContent = attemptedCount;
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(event) {
+            if (event.key === ' ' || event.key === 'Enter') {
+                event.preventDefault();
+                flipCard();
+            } else if (event.key === 'ArrowRight') {
+                nextCard();
+            } else if (event.key === 'ArrowLeft') {
+                prevCard();
+            }
+        });
+
+        // Initialize
+        updateCard();
+    </script>
+</body>
+</html>
